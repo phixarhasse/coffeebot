@@ -9,3 +9,4 @@ Responsible for watching the office's coffee maker and sending notifications to 
 - Implement statistics
 - Implement reasonable logging
 - Alter Slack channel name to show status
+- Calculate time it takes to brew one full pot and provide a percentage of how much coffee has been made
