@@ -1,30 +1,37 @@
+# Version 1.4
 # Shelly API doc: https://shelly-api-docs.shelly.cloud/
 # This code is calibrated for a Moccamaster KBG744 AO-B (double brewer with 2 pots).
 import requests
 import time
 
-SENSOR_URL = "url-to-shelly-plug/status"
+SENSOR_URL = "http://url-to-shelly/status"
 SLACK_URL = ""
 HEADERS = {"Content-Type":"application/json"}
 SLACK_MESSAGES = {"1bryggs":"Nu bryggs det 1 kanna! :building_construction:",
                   "2bryggs":"Nu bryggs det 2 kannor! :building_construction: :building_construction:",
-                  "1klar":"1 kanna färdig! :coffee:",
-                  "2klar":"2 kannor färdiga! :coffee: :coffee:",
-                  "1gammal":"Någon värmer 1 kanna gammalt kaffe. Mums!",
-                  "2gammla":"Någon värmer 2 kannor gammalt kaffe. Mums!",
-                  "slut":"Bryggare avstängd. :broken_heart:"}
+                  "klart":"Nu är kaffet färdigt! :coffee: :brown_heart:",
+                  "slut":"Bryggare avstängd. :broken_heart:",
+                  "svalnande": "Någon räddar svalnande kaffe! :ambulance:"}
 
 # Dict to represent brewer state
-STATE = {"brewing": False, "sentEndMessage": True, "onePotDone": False, "twoPotsDone": False}
+STATE = {"brewing": False, "sentEndMessage": True, "coffeeDone": False}
+
 MEASURE_INTERVAL = 10 # seconds
 
+"""Polls the Shelly embedded web server for power usage [Watt] twice with MEASURE_INTERVAL seconds between.
+Returns second value if valid measure, -1.0 otherwise.
+"""
 def measure():
+    tolerance = 10
     try:
         response = requests.request("GET", SENSOR_URL)
     except Exception as e:
         print(e)
         return -1.0
     value1 = float(response.json()['meters'][0]['power'])
+    # Increase tolerance for higher values
+    if(value1 > 2000.0):
+        tolerance = 40
     print(value1,"Watt")
     time.sleep(MEASURE_INTERVAL)
     try:
@@ -35,15 +42,15 @@ def measure():
     value2 = float(response.json()['meters'][0]['power'])
     print(value2, "Watt")
     # If diff is larger than 10, the power is still changing
-    if(not abs(value1 - value2) > 10): return value2
+    # Diffs lower than 1.0 should not trigger anything
+    if((not abs(value1 - value2) > tolerance) or
+        (not abs(value1 - value2) < 1.0)): return value2
     else: return -1.0
 
 def resetState():
     STATE["brewing"] = False
     STATE["sentEndMessage"] = True
-    STATE["onePotDone"] = False
-    STATE["twoPotsDone"] = False
-
+    STATE["coffeeDone"] = False
 
 # Main loop
 while(True):
@@ -53,36 +60,22 @@ while(True):
         time.sleep(MEASURE_INTERVAL)
         continue
 
-    # Heating 1 old pot
-    elif((power > 0.0) and (power <= 100.0) and not STATE["brewing"] and not STATE["onePotDone"]):
-        print(SLACK_MESSAGES["1gammal"])
-        slackresponse = requests.post(SLACK_URL, headers = HEADERS, json = {"text": SLACK_MESSAGES["1gammal"]})
+    # Heating old coffee
+    elif((power > 1.0) and (power <= 300.0) and not STATE["brewing"] and not STATE["coffeeDone"]):
+        print(SLACK_MESSAGES["svalnande"])
+        slackresponse = requests.post(SLACK_URL, headers = HEADERS, json = {"text": SLACK_MESSAGES["svalnande"]})
         print("Slack: " + slackresponse.text)
-        STATE["onePotDone"] = True
+        STATE["coffeeDone"] = True
         STATE["sentEndMessage"] = False
 
-    # Heating 1 fresh pot
-    elif((power > 0.0) and (power <= 100.0) and STATE["brewing"]):
-        print(SLACK_MESSAGES["1klar"])
-        slackresponse = requests.post(SLACK_URL, headers = HEADERS, json = {"text": SLACK_MESSAGES["1klar"]})
-        print("Slack: " + slackresponse.text)
-        STATE["onePotDone"] = True
-        STATE["brewing"] = False
-    
-    # Heating 2 old pots
-    elif((power > 100.0) and (power <= 300.0) and not STATE["brewing"] and not STATE["twoPotsDone"]):
-        print(SLACK_MESSAGES["2gammla"])
-        slackresponse = requests.post(SLACK_URL, headers = HEADERS, json = {"text": SLACK_MESSAGES["2gammla"]})
-        print("Slack: " + slackresponse.text)
-        STATE["twoPotsDone"] = True
-        STATE["sentEndMessage"] = False
-        
-    # Heating 2 fresh pots
-    elif((power > 100.0) and (power <= 300.0) and STATE["brewing"]):
-        print(SLACK_MESSAGES["2klar"])
-        slackresponse = requests.post(SLACK_URL, headers = HEADERS, json = {"text": SLACK_MESSAGES["2klar"]})
-        print("Slack: " + slackresponse.text)
-        STATE["twoPotsDone"] = True
+    # Fresh coffee has been made
+    elif((power > 1.0) and (power <= 300.0) and STATE["brewing"]):
+        # Wait for coffee to drip down
+        time.sleep(30)
+        print(SLACK_MESSAGES["klart"])
+        slackresponse = requests.post(SLACK_URL, headers = HEADERS, json = {"text": SLACK_MESSAGES["klart"]})
+        print("Slack says: " + slackresponse.text)
+        STATE["coffeeDone"] = True
         STATE["brewing"] = False
 
     # One pot is brewing
