@@ -22,7 +22,7 @@ MEASURE_INTERVAL = 10 # seconds
 Returns second value if valid measure, -1.0 otherwise.
 """
 def measure():
-    tolerance = 10
+    tolerance = 20.0
     try:
         response = requests.request("GET", SENSOR_URL)
     except Exception as e:
@@ -43,8 +43,9 @@ def measure():
     print(value2, "Watt")
     # If diff is larger than 10, the power is still changing
     # Diffs lower than 1.0 should not trigger anything
-    if((not abs(value1 - value2) > tolerance) or
-        (not abs(value1 - value2) < 1.0)): return value2
+    if(value1 == 0.0 and value2 == 0.0): return value2
+    elif(abs(value1 - value2) <= tolerance and
+        abs(value1 - value2) > 1.0): return value2
     else: return -1.0
 
 def resetState():
