@@ -53,57 +53,61 @@ def resetState():
     STATE["sentEndMessage"] = True
     STATE["coffeeDone"] = False
 
-# Main loop
-while(True):
-    power = measure()
-    if(power == -1.0):
-        # Power is still changing or an exception occured, wait and measure again
+
+def main():
+    while(True):
+        power = measure()
+        if(power == -1.0):
+            # Power is still changing or an exception occured, wait and measure again
+            time.sleep(MEASURE_INTERVAL)
+            continue
+
+        # Heating old coffee
+        elif((power > 1.0) and (power <= 300.0) and not STATE["brewing"] and not STATE["coffeeDone"]):
+            print(SLACK_MESSAGES["svalnande"])
+            slackresponse = requests.post(SLACK_URL, headers = HEADERS, json = {"text": SLACK_MESSAGES["svalnande"]})
+            print("Slack: " + slackresponse.text)
+            STATE["coffeeDone"] = True
+            STATE["sentEndMessage"] = False
+
+        # Fresh coffee has been made
+        elif((power > 1.0) and (power <= 300.0) and STATE["brewing"]):
+            # Wait for coffee to drip down
+            time.sleep(30)
+            print(SLACK_MESSAGES["klart"])
+            slackresponse = requests.post(SLACK_URL, headers = HEADERS, json = {"text": SLACK_MESSAGES["klart"]})
+            print("Slack says: " + slackresponse.text)
+            STATE["coffeeDone"] = True
+            STATE["brewing"] = False
+
+        # One pot is brewing
+        elif(power > 1000.0 and power <= 2000.0 and not STATE["brewing"]):
+            print(SLACK_MESSAGES["1bryggs"])
+            slackresponse = requests.post(SLACK_URL, headers = HEADERS, json = {"text": SLACK_MESSAGES["1bryggs"]})
+            print("Slack: " + slackresponse.text)
+            STATE["brewing"] = True
+            STATE["sentEndMessage"] = False
+
+        # Two pots are brewing
+        elif(power > 2000.0 and not STATE["brewing"]):
+            print(SLACK_MESSAGES["2bryggs"])
+            slackresponse = requests.post(SLACK_URL, headers = HEADERS, json = {"text": SLACK_MESSAGES["2bryggs"]})
+            print("Slack: " + slackresponse.text)
+            STATE["brewing"] = True
+            STATE["sentEndMessage"] = False
+
+        # Coffee maker turned off
+        elif(power == 0.0 and not STATE["sentEndMessage"]):
+            print(SLACK_MESSAGES["slut"])
+            slackresponse = requests.post(SLACK_URL, headers = HEADERS, json = {"text": SLACK_MESSAGES["slut"]})
+            print("Slack: " + slackresponse.text)
+            resetState()
+
+        # Idle, don't send messages
+        elif(power == 0.0 and STATE["sentEndMessage"]):
+            print("Bryggare avstängd.")
+
         time.sleep(MEASURE_INTERVAL)
-        continue
 
-    # Heating old coffee
-    elif((power > 1.0) and (power <= 300.0) and not STATE["brewing"] and not STATE["coffeeDone"]):
-        print(SLACK_MESSAGES["svalnande"])
-        slackresponse = requests.post(SLACK_URL, headers = HEADERS, json = {"text": SLACK_MESSAGES["svalnande"]})
-        print("Slack: " + slackresponse.text)
-        STATE["coffeeDone"] = True
-        STATE["sentEndMessage"] = False
-
-    # Fresh coffee has been made
-    elif((power > 1.0) and (power <= 300.0) and STATE["brewing"]):
-        # Wait for coffee to drip down
-        time.sleep(30)
-        print(SLACK_MESSAGES["klart"])
-        slackresponse = requests.post(SLACK_URL, headers = HEADERS, json = {"text": SLACK_MESSAGES["klart"]})
-        print("Slack says: " + slackresponse.text)
-        STATE["coffeeDone"] = True
-        STATE["brewing"] = False
-
-    # One pot is brewing
-    elif(power > 1000.0 and power <= 2000.0 and not STATE["brewing"]):
-        print(SLACK_MESSAGES["1bryggs"])
-        slackresponse = requests.post(SLACK_URL, headers = HEADERS, json = {"text": SLACK_MESSAGES["1bryggs"]})
-        print("Slack: " + slackresponse.text)
-        STATE["brewing"] = True
-        STATE["sentEndMessage"] = False
-
-    # Two pots are brewing
-    elif(power > 2000.0 and not STATE["brewing"]):
-        print(SLACK_MESSAGES["2bryggs"])
-        slackresponse = requests.post(SLACK_URL, headers = HEADERS, json = {"text": SLACK_MESSAGES["2bryggs"]})
-        print("Slack: " + slackresponse.text)
-        STATE["brewing"] = True
-        STATE["sentEndMessage"] = False
-
-    # Coffee maker turned off
-    elif(power == 0.0 and not STATE["sentEndMessage"]):
-        print(SLACK_MESSAGES["slut"])
-        slackresponse = requests.post(SLACK_URL, headers = HEADERS, json = {"text": SLACK_MESSAGES["slut"]})
-        print("Slack: " + slackresponse.text)
-        resetState()
-        
-    # Idle, don't send messages
-    elif(power == 0.0 and STATE["sentEndMessage"]):
-        print("Bryggare avstängd.")
-
-    time.sleep(MEASURE_INTERVAL)
+if(__name__ == "__main__"):
+    main()
