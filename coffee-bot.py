@@ -1,8 +1,12 @@
-# Version 1.4
+# Version 1.5
 # Shelly API doc: https://shelly-api-docs.shelly.cloud/
 # This code is calibrated for a Moccamaster KBG744 AO-B (double brewer with 2 pots).
 import requests
 import time
+from datetime import date
+from datetime import datetime
+from signal import signal, SIGINT
+from sys import exit
 
 SENSOR_URL = "http://url-to-shelly/status"
 SLACK_URL = ""
@@ -53,8 +57,34 @@ def resetState():
     STATE["sentEndMessage"] = True
     STATE["coffeeDone"] = False
 
+def exitHandler(numberofpots, start):
+    print("Ctrl-c pressed. Exiting gracefully.")
+    if(type(numberofpots) is int):
+        print("Since {}, {} pots have been brewed.".format(start, numberofpots))
+    print("Thank you for using CoffeeBot™!")
+    exit(0)
+
+def writeStatsToFile(pots):
+    today = date.today()
+    now = datetime.now()
+    if(not type(pots) is int):
+        print("Input to file not an integer")
+        return -1
+    try:
+        # Open log file, creates if does not exist
+        f = open("./logs/stats-{}.stat".format(today), "a")
+        f.write("{}|{}".format(now, pots))
+        f.close()
+        return 0
+    except Exception as e:
+        print(e)
+        return -1
 
 def main():
+    start = datetime.now()
+    numberofpots = 0
+    signal(SIGINT, exitHandler(numberofpots, start))
+    # Main loop
     while(True):
         power = measure()
         if(power == -1.0):
@@ -87,6 +117,10 @@ def main():
             print("Slack: " + slackresponse.text)
             STATE["brewing"] = True
             STATE["sentEndMessage"] = False
+            numberofpots += 1
+            filewritten = writeStatsToFile(1)
+            if(filewritten == -1):
+                print("Failed to write stats to file.")
 
         # Two pots are brewing
         elif(power > 2000.0 and not STATE["brewing"]):
@@ -95,6 +129,10 @@ def main():
             print("Slack: " + slackresponse.text)
             STATE["brewing"] = True
             STATE["sentEndMessage"] = False
+            numberofpots += 2
+            filewritten = writeStatsToFile(2)
+            if(filewritten == -1):
+                print("Failed to write stats to file.")
 
         # Coffee maker turned off
         elif(power == 0.0 and not STATE["sentEndMessage"]):
