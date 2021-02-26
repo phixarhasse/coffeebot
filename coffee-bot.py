@@ -3,11 +3,12 @@
 # This code is calibrated for a Moccamaster KBG744 AO-B (double brewer with 2 pots).
 import requests
 import time
+import signal
 from datetime import date
 from datetime import datetime
-from signal import signal, SIGINT
 from sys import exit
 
+START = datetime.now()
 SENSOR_URL = "http://url-to-shelly/status"
 SLACK_URL = ""
 HEADERS = {"Content-Type":"application/json"}
@@ -21,7 +22,7 @@ SLACK_MESSAGES = {"1bryggs":"Nu bryggs det 1 kanna! :building_construction:",
 STATE = {"brewing": False, "sentEndMessage": True, "coffeeDone": False}
 
 MEASURE_INTERVAL = 10 # seconds
-
+NUMBEROFPOTS = 0
 """Polls the Shelly embedded web server for power usage [Watt] twice with MEASURE_INTERVAL seconds between.
 Returns second value if valid measure, -1.0 otherwise.
 """
@@ -57,10 +58,10 @@ def resetState():
     STATE["sentEndMessage"] = True
     STATE["coffeeDone"] = False
 
-def exitHandler(numberofpots, start):
+def exitHandler(NUMBEROFPOTS, START):
     print("Ctrl-c pressed. Exiting gracefully.")
-    if(type(numberofpots) is int):
-        print("Since {}, {} pots have been brewed.".format(start, numberofpots))
+    if(type(NUMBEROFPOTS) is int):
+        print("Since {}, {} pots have been brewed.".format(START, NUMBEROFPOTS))
     print("Thank you for using CoffeeBot™!")
     exit(0)
 
@@ -71,7 +72,7 @@ def writeStatsToFile(pots):
         print("Input to file not an integer")
         return -1
     try:
-        # Open log file, creates if does not exist
+        # Open log file, creates one if does not exist
         f = open("./logs/stats-{}.stat".format(today), "a")
         f.write("{}|{}".format(now, pots))
         f.close()
@@ -81,9 +82,6 @@ def writeStatsToFile(pots):
         return -1
 
 def main():
-    start = datetime.now()
-    numberofpots = 0
-    signal(SIGINT, exitHandler(numberofpots, start))
     # Main loop
     while(True):
         power = measure()
@@ -117,7 +115,7 @@ def main():
             print("Slack: " + slackresponse.text)
             STATE["brewing"] = True
             STATE["sentEndMessage"] = False
-            numberofpots += 1
+            NUMBEROFPOTS = NUMBEROFPOTS + 1
             filewritten = writeStatsToFile(1)
             if(filewritten == -1):
                 print("Failed to write stats to file.")
@@ -129,7 +127,7 @@ def main():
             print("Slack: " + slackresponse.text)
             STATE["brewing"] = True
             STATE["sentEndMessage"] = False
-            numberofpots += 2
+            NUMBEROFPOTS = NUMBEROFPOTS + 2
             filewritten = writeStatsToFile(2)
             if(filewritten == -1):
                 print("Failed to write stats to file.")
@@ -148,4 +146,6 @@ def main():
         time.sleep(MEASURE_INTERVAL)
 
 if(__name__ == "__main__"):
+    # Listening for ctrl-c does not currently work, exits script directly after start
+    #signal.signal(signal.SIGINT, exitHandler(NUMBEROFPOTS, START))
     main()
