@@ -1,18 +1,18 @@
-# Version 1.5
+# Version 2.0
 # Shelly API doc: https://shelly-api-docs.shelly.cloud/
 # This code is calibrated for a Moccamaster KBG744 AO-B (double brewer with 2 pots).
 import requests
 import time
-import signal
 from datetime import date
 from datetime import datetime
-from sys import exit
+from hue import Hue
 
-START = datetime.now()
-SENSOR_URL = "http://url-to-shelly/status"
+SENSOR_URL = "http://url-to-shelly/meter/0"
+HUE_IP = "ip-to-hue-bridge"
 SLACK_URL = ""
+
 HEADERS = {"Content-Type":"application/json"}
-SLACK_MESSAGES = {"1bryggs":"Nu bryggs det 1 kanna! :building_construction:",
+MESSAGES = {"1bryggs":"Nu bryggs det 1 kanna! :building_construction:",
                   "2bryggs":"Nu bryggs det 2 kannor! :building_construction: :building_construction:",
                   "klart":"Nu är kaffet färdigt! :coffee: :brown_heart:",
                   "slut":"Bryggare avstängd. :broken_heart:",
@@ -20,23 +20,23 @@ SLACK_MESSAGES = {"1bryggs":"Nu bryggs det 1 kanna! :building_construction:",
 
 # Dict to represent brewer state
 STATE = {"brewing": False, "sentEndMessage": True, "coffeeDone": False}
+MEASURE_INTERVAL = 5 #seconds
+SEND_TO_SLACK = False
 
-MEASURE_INTERVAL = 10 # seconds
-NUMBEROFPOTS = 0
 """Polls the Shelly embedded web server for power usage [Watt] twice with MEASURE_INTERVAL seconds between.
 Returns second value if valid measure, -1.0 otherwise.
 """
 def measure():
-    tolerance = 20.0
+    tolerance = 40.0
     try:
         response = requests.request("GET", SENSOR_URL)
     except Exception as e:
         print(e)
         return -1.0
-    value1 = float(response.json()['meters'][0]['power'])
+    value1 = float(response.json()['power'])
     # Increase tolerance for higher values
     if(value1 > 2000.0):
-        tolerance = 40
+        tolerance = 80
     print(value1,"Watt")
     time.sleep(MEASURE_INTERVAL)
     try:
@@ -44,7 +44,7 @@ def measure():
     except Exception as e:
         print(e)
         return -1.0
-    value2 = float(response.json()['meters'][0]['power'])
+    value2 = float(response.json()['power'])
     print(value2, "Watt")
     # If diff is larger than 10, the power is still changing
     # Diffs lower than 1.0 should not trigger anything
@@ -58,13 +58,6 @@ def resetState():
     STATE["sentEndMessage"] = True
     STATE["coffeeDone"] = False
 
-def exitHandler(NUMBEROFPOTS, START):
-    print("Ctrl-c pressed. Exiting gracefully.")
-    if(type(NUMBEROFPOTS) is int):
-        print("Since {}, {} pots have been brewed.".format(START, NUMBEROFPOTS))
-    print("Thank you for using CoffeeBot™!")
-    exit(0)
-
 def writeStatsToFile(pots):
     today = date.today()
     now = datetime.now()
@@ -73,8 +66,8 @@ def writeStatsToFile(pots):
         return -1
     try:
         # Open log file, creates one if does not exist
-        f = open("./logs/stats-{}.stat".format(today), "a")
-        f.write("{}|{}".format(now, pots))
+        f = open(f"./logs/stats-{today}.stat", "a")
+        f.write(f"{now}|{pots}\n")
         f.close()
         return 0
     except Exception as e:
@@ -82,61 +75,89 @@ def writeStatsToFile(pots):
         return -1
 
 def main():
+    hue = Hue(HUE_IP)
+
+    # Get Hue username
+    hue.loadUsername()
+    if(hue.username == ""):
+        print("Waiting for Hue authorization...")
+        hue.authorize()
+        print("---> Hue Authorization complete!")
+
+    # Get Hue lights
+    hue.getLights()
+
+    # Set all lights to red
+    hue.setAllLights(65000)
+
     # Main loop
     while(True):
         power = measure()
         if(power == -1.0):
             # Power is still changing or an exception occured, wait and measure again
-            time.sleep(MEASURE_INTERVAL)
+            time.sleep(MEASURE_INTERVAL/2)
             continue
 
         # Heating old coffee
         elif((power > 1.0) and (power <= 300.0) and not STATE["brewing"] and not STATE["coffeeDone"]):
-            print(SLACK_MESSAGES["svalnande"])
-            slackresponse = requests.post(SLACK_URL, headers = HEADERS, json = {"text": SLACK_MESSAGES["svalnande"]})
-            print("Slack: " + slackresponse.text)
+            print(MESSAGES["svalnande"])
+            if(SEND_TO_SLACK):
+                slackresponse = requests.post(SLACK_URL, headers = HEADERS, json = {"text": MESSAGES["svalnande"]})
+                print(f"Slack: {slackresponse.text}")
+            hue.setAllLights(29000) # green
             STATE["coffeeDone"] = True
             STATE["sentEndMessage"] = False
 
         # Fresh coffee has been made
         elif((power > 1.0) and (power <= 300.0) and STATE["brewing"]):
-            # Wait for coffee to drip down
-            time.sleep(30)
-            print(SLACK_MESSAGES["klart"])
-            slackresponse = requests.post(SLACK_URL, headers = HEADERS, json = {"text": SLACK_MESSAGES["klart"]})
-            print("Slack says: " + slackresponse.text)
+            time.sleep(30) # Wait for coffee to drip down
+            print(MESSAGES["klart"])
+            if(SEND_TO_SLACK):
+                slackresponse = requests.post(SLACK_URL, headers = HEADERS, json = {"text": MESSAGES["klart"]})
+                print(f"Slack: {slackresponse.text}")
+            hue.setAllLights(29000) # green
             STATE["coffeeDone"] = True
             STATE["brewing"] = False
 
         # One pot is brewing
         elif(power > 1000.0 and power <= 2000.0 and not STATE["brewing"]):
-            print(SLACK_MESSAGES["1bryggs"])
-            slackresponse = requests.post(SLACK_URL, headers = HEADERS, json = {"text": SLACK_MESSAGES["1bryggs"]})
-            print("Slack: " + slackresponse.text)
+            print(MESSAGES["1bryggs"])
+            if(SEND_TO_SLACK):
+                slackresponse = requests.post(SLACK_URL, headers = HEADERS, json = {"text": MESSAGES["1bryggs"]})
+                print(f"Slack: {slackresponse.text}")
+            hue.setAllLights(10000) # yellow
             STATE["brewing"] = True
             STATE["sentEndMessage"] = False
-            NUMBEROFPOTS = NUMBEROFPOTS + 1
             filewritten = writeStatsToFile(1)
             if(filewritten == -1):
                 print("Failed to write stats to file.")
+        
+        # Still brewing, make lights blink
+        elif(power > 1000.0 and STATE["brewing"]):
+            hue.turnOffAllLights()
+            time.sleep(1)
+            hue.setAllLights(10000) # yellow
 
         # Two pots are brewing
         elif(power > 2000.0 and not STATE["brewing"]):
-            print(SLACK_MESSAGES["2bryggs"])
-            slackresponse = requests.post(SLACK_URL, headers = HEADERS, json = {"text": SLACK_MESSAGES["2bryggs"]})
-            print("Slack: " + slackresponse.text)
+            print(MESSAGES["2bryggs"])
+            if(SEND_TO_SLACK):
+                slackresponse = requests.post(SLACK_URL, headers = HEADERS, json = {"text": MESSAGES["2bryggs"]})
+                print(f"Slack: {slackresponse.text}")
+            hue.setAllLights(10000) # yellow
             STATE["brewing"] = True
             STATE["sentEndMessage"] = False
-            NUMBEROFPOTS = NUMBEROFPOTS + 2
             filewritten = writeStatsToFile(2)
             if(filewritten == -1):
                 print("Failed to write stats to file.")
 
         # Coffee maker turned off
         elif(power == 0.0 and not STATE["sentEndMessage"]):
-            print(SLACK_MESSAGES["slut"])
-            slackresponse = requests.post(SLACK_URL, headers = HEADERS, json = {"text": SLACK_MESSAGES["slut"]})
-            print("Slack: " + slackresponse.text)
+            print(MESSAGES["slut"])
+            if(SEND_TO_SLACK):
+                slackresponse = requests.post(SLACK_URL, headers = HEADERS, json = {"text": MESSAGES["slut"]})
+                print(f"Slack: {slackresponse.text}")
+            hue.setAllLights(65000) # red
             resetState()
 
         # Idle, don't send messages
@@ -146,6 +167,4 @@ def main():
         time.sleep(MEASURE_INTERVAL)
 
 if(__name__ == "__main__"):
-    # Listening for ctrl-c does not currently work, exits script directly after start
-    #signal.signal(signal.SIGINT, exitHandler(NUMBEROFPOTS, START))
     main()
