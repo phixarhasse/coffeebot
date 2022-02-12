@@ -2,10 +2,10 @@
 # Shelly API doc: https://shelly-api-docs.shelly.cloud/
 # This code is calibrated for a Moccamaster KBG744 AO-B (double brewer with 2 pots).
 
-'''
+"""
 TODO: Set up environment variables.
 Add (better) documentation.
-'''
+"""
 
 import requests
 import time
@@ -62,7 +62,8 @@ def measure():
         abs(value1 - value2) > 1.0): return value2
     else: return -1.0
 
-"""Resets the global dict respresenting the brewer state
+"""
+Resets the global dict respresenting the brewer state
 """
 def resetState():
     STATE["brewing"] = False
@@ -83,9 +84,9 @@ def setupHue():
     hue.setAllLights(65000)
     return hue
 
-'''
+"""
 Main loop
-'''
+"""
 def main():
     if(USE_HUE):
         hue = setupHue()
@@ -127,9 +128,9 @@ def main():
 
         time.sleep(MEASURE_INTERVAL)
 
-'''
+"""
 Messaging and Hue control methods
-'''
+"""
 def heatingOldCoffee(hue):
     print(MESSAGES["svalnande"])
     if(SEND_TO_SLACK):
