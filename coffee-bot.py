@@ -10,10 +10,13 @@ Add (better) documentation.
 import requests
 import time
 from hue import Hue
+from datetime import datetime
+from influxdb_client import InfluxDBClient, Point, WritePrecision
+from influxdb_client.client.write_api import SYNCHRONOUS
 
-SENSOR_URL = "http://ip-to-shelly/meter/0"
-HUE_IP = "ip-to-hue-bridge"
-SLACK_URL = ""
+SENSOR_URL = "http://10.1.1.135/meter/0" # Spinit Office
+HUE_IP = "10.1.1.114"
+SLACK_URL = "https://hooks.slack.com/services/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"
 
 HEADERS = {"Content-Type":"application/json"}
 MESSAGES = {"1bryggs":"Nu bryggs det 1 kanna! :building_construction:",
@@ -45,7 +48,6 @@ def measure():
     if(value1 > 2000.0):
         tolerance = 80
     print(value1,"Watt")
-
     time.sleep(MEASURE_INTERVAL)
     try:
         response = requests.request("GET", SENSOR_URL)
@@ -56,7 +58,7 @@ def measure():
     print(value2, "Watt")
 
     # If diff is larger than 10, the power is still changing
-    # Diffs lower than 1.0 should not trigger anything
+    # Diffs lower than 1.0 are ignored
     if(value1 == 0.0 and value2 == 0.0): return value2
     elif(abs(value1 - value2) <= tolerance and
         abs(value1 - value2) > 1.0): return value2
