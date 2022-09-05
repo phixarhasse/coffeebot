@@ -1,45 +1,72 @@
-# Version 2.0.1
+# Version 3.0.0
 # Shelly API doc: https://shelly-api-docs.shelly.cloud/
 # This code is calibrated for a Moccamaster KBG744 AO-B (double brewer with 2 pots).
 
 """
-TODO: Set up environment variables.
-Add (better) documentation.
+TODO: Data collection, automatic or semiautomatic calibration
 """
 
+from dotenv import load_dotenv
+import os
 import requests
 import time
 from hue import Hue
-from datetime import datetime
-from influxdb_client import InfluxDBClient, Point, WritePrecision
-from influxdb_client.client.write_api import SYNCHRONOUS
-
-SENSOR_URL = "http://10.1.1.135/meter/0" # Spinit Office
-HUE_IP = "10.1.1.114"
-SLACK_URL = "https://hooks.slack.com/services/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"
-
-HEADERS = {"Content-Type":"application/json"}
-MESSAGES = {"1bryggs":"Nu bryggs det 1 kanna! :building_construction:",
-                  "2bryggs":"Nu bryggs det 2 kannor! :building_construction: :building_construction:",
-                  "klart":"Nu är kaffet färdigt! :coffee: :brown_heart:",
-                  "slut":"Bryggare avstängd. :broken_heart:",
-                  "svalnande": "Någon räddar svalnande kaffe! :ambulance:"}
+from slack import Slack
 
 # Dict representing brewer state
-STATE = {"brewing": False, "sentEndMessage": True, "coffeeDone": False}
+STATE = {"brewing": False, "turnedOff": True, "coffeeDone": False}
 MEASURE_INTERVAL = 5 #seconds
-SEND_TO_SLACK = True
-USE_HUE = True
 
+"""
+Main loop
+"""
+def main() -> None:
+    load_dotenv() # Load environment variables
+    sensor_url = os.environ['SENSOR_URL']
+    slack = Slack()
+    hue = setupHue()
+
+    while(True):
+        power = measure(sensor_url)
+        if(power == -1.0):
+            # Power is still changing or an exception occured, wait and measure again
+            time.sleep(MEASURE_INTERVAL/2)
+            continue
+
+        # Heating old coffee
+        elif((power > 1.0) and (power <= 300.0) and not STATE["brewing"] and not STATE["coffeeDone"]):
+            heatingOldCoffee(hue, slack)
+
+        # Fresh coffee has been made
+        elif((power > 1.0) and (power <= 300.0) and STATE["brewing"]):
+            freshCoffeeHasBeenMade(hue, slack)
+
+        # Coffee is brewing
+        elif(power > 1000.0 and not STATE["brewing"]):
+            coffeeIsBrewing(hue, slack)
+        
+        # Still brewing, make lights blink
+        elif(power > 1000.0 and STATE["brewing"]):
+            stillBrewing(hue)
+
+        # Coffee maker turned off
+        elif(power == 0.0 and not STATE["turnedOff"]):
+            coffeeMakerTurnedOff(hue, slack)
+
+        # Idle, don't send messages
+        elif(power == 0.0 and STATE["turnedOff"]):
+            continue
+
+        time.sleep(MEASURE_INTERVAL)
 
 """
 Polls the Shelly embedded web server for power usage [Watt] twice with MEASURE_INTERVAL seconds between.
 Returns second value if valid measure, -1.0 otherwise.
 """
-def measure():
+def measure(sensor_url) -> float:
     tolerance = 40.0
     try:
-        response = requests.request("GET", SENSOR_URL)
+        response = requests.request("GET", sensor_url)
     except Exception as e:
         print(e)
         return -1.0
@@ -50,7 +77,7 @@ def measure():
     print(value1,"Watt")
     time.sleep(MEASURE_INTERVAL)
     try:
-        response = requests.request("GET", SENSOR_URL)
+        response = requests.request("GET", sensor_url)
     except Exception as e:
         print(e)
         return -1.0
@@ -67,137 +94,74 @@ def measure():
 """
 Resets the global dict respresenting the brewer state
 """
-def resetState():
+def resetState() -> None:
     STATE["brewing"] = False
-    STATE["sentEndMessage"] = True
+    STATE["turnedOff"] = True
     STATE["coffeeDone"] = False
 
-def setupHue():
-    hue = Hue(HUE_IP)
-    # Get Hue username
-    hue.loadUsername()
-    if(hue.username == ""):
-        print("Waiting for Hue authorization...")
-        hue.authorize()
-        print("---> Hue Authorization complete!")
-    # Get Hue lights
+"""
+Loads Hue username and lights
+"""
+def setupHue() -> Hue:
+    hue = Hue()
     hue.getLights()
-    # Set all lights to red
-    hue.setAllLights(65000)
     return hue
-
-"""
-Main loop
-"""
-def main():
-    if(USE_HUE):
-        hue = setupHue()
-    # Main loop
-    while(True):
-        power = measure()
-        if(power == -1.0):
-            # Power is still changing or an exception occured, wait and measure again
-            time.sleep(MEASURE_INTERVAL/2)
-            continue
-
-        # Heating old coffee
-        elif((power > 1.0) and (power <= 300.0) and not STATE["brewing"] and not STATE["coffeeDone"]):
-            heatingOldCoffee(hue)
-
-        # Fresh coffee has been made
-        elif((power > 1.0) and (power <= 300.0) and STATE["brewing"]):
-            freshCoffeeHasBeenMade(hue)
-
-        # One pot is brewing
-        elif(power > 1000.0 and power <= 2000.0 and not STATE["brewing"]):
-            onePotIsBrewing(hue)
-        
-        # Still brewing, make lights blink
-        elif(power > 1000.0 and STATE["brewing"]):
-            stillBrewing(hue)
-
-        # Two pots are brewing
-        elif(power > 2000.0 and not STATE["brewing"]):
-            twoPotsAreBrewing(hue)
-
-        # Coffee maker turned off
-        elif(power == 0.0 and not STATE["sentEndMessage"]):
-            coffeeMakerTurnedOff(hue)
-
-        # Idle, don't send messages
-        elif(power == 0.0 and STATE["sentEndMessage"]):
-            print("Bryggare avstängd.")
-
-        time.sleep(MEASURE_INTERVAL)
 
 """
 Messaging and Hue control methods
 """
-def heatingOldCoffee(hue):
-    print(MESSAGES["svalnande"])
-    if(SEND_TO_SLACK):
-        slackresponse = requests.post(SLACK_URL, headers = HEADERS, json = {"text": MESSAGES["svalnande"]})
-        print(f"Slack: {slackresponse.text}")
+def heatingOldCoffee(hue: Hue, slack: Slack) -> None:
+    print(slack.messages["saving"])
+    if(slack.useSlack):
+        slack.deleteLastMessage()
+        slack.postMessage(slack.messages["saving"])
 
-    if(USE_HUE):
+    if(hue.useHue):
         hue.setAllLights(29000) # green
 
     STATE["coffeeDone"] = True
-    STATE["sentEndMessage"] = False
+    STATE["turnedOff"] = False
 
-def freshCoffeeHasBeenMade(hue):
-    time.sleep(30) # Wait for coffee to drip down
-    print(MESSAGES["klart"])
-    if(SEND_TO_SLACK):
-        slackresponse = requests.post(SLACK_URL, headers = HEADERS, json = {"text": MESSAGES["klart"]})
-        print(f"Slack: {slackresponse.text}")
+def coffeeIsBrewing(hue: Hue, slack: Slack) -> None:
+    print(slack.messages["brewing"])
+    if(slack.useSlack):
+        slack.deleteLastMessage()
+        slack.postMessage(slack.messages["brewing"])
 
-    if(USE_HUE):
+    if(hue.useHue):
+        hue.setAllLights(10000) # yellow
+
+    STATE["brewing"] = True
+    STATE["turnedOff"] = False
+
+def freshCoffeeHasBeenMade(hue: Hue,  slack: Slack) -> None:
+    time.sleep(30) # Wait 30 seconds for coffee to drip down
+    print(slack.messages["done"])
+    if(slack.useSlack):
+        slack.deleteLastMessage()
+        slack.postMessage(slack.messages["done"])
+
+    if(hue.useHue):
         hue.setAllLights(29000) # green
 
     STATE["coffeeDone"] = True
     STATE["brewing"] = False
 
-def onePotIsBrewing(hue):
-    print(MESSAGES["1bryggs"])
-    if(SEND_TO_SLACK):
-        slackresponse = requests.post(SLACK_URL, headers = HEADERS, json = {"text": MESSAGES["1bryggs"]})
-        print(f"Slack: {slackresponse.text}")
-
-    if(USE_HUE):
-        hue.setAllLights(10000) # yellow
-
-    STATE["brewing"] = True
-    STATE["sentEndMessage"] = False
-
-def twoPotsAreBrewing(hue):
-    print(MESSAGES["2bryggs"])
-    if(SEND_TO_SLACK):
-        slackresponse = requests.post(SLACK_URL, headers = HEADERS, json = {"text": MESSAGES["2bryggs"]})
-        print(f"Slack: {slackresponse.text}")
-
-    if(USE_HUE):
-        hue.setAllLights(10000) # yellow
-
-    STATE["brewing"] = True
-    STATE["sentEndMessage"] = False
-
-def stillBrewing(hue):
-    if(USE_HUE):
+def stillBrewing(hue: Hue) -> None:
+    if(hue.useHue):
         hue.turnOffAllLights()
         time.sleep(1)
         hue.setAllLights(10000) # yellow
 
-def coffeeMakerTurnedOff(hue):
-    print(MESSAGES["slut"])
-    if(SEND_TO_SLACK):
-        slackresponse = requests.post(SLACK_URL, headers = HEADERS, json = {"text": MESSAGES["slut"]})
-        print(f"Slack: {slackresponse.text}")
-
-    if(USE_HUE):
-        hue.setAllLights(65000) # red
-
+def coffeeMakerTurnedOff(hue: Hue,  slack: Slack) -> None:
+    print(slack.messages["off"])
     resetState()
+    if(slack.useSlack):
+        slack.deleteLastMessage()
+        slack.postMessage(slack.messages["off"])
+
+    if(hue.useHue):
+        hue.setAllLights(65000) # red
 
 
 if(__name__ == "__main__"):
