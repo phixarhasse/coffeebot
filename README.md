@@ -10,19 +10,19 @@ Responsible for watching the office's coffee maker and sending notifications to 
 
 ```sh
 source env/bin/activate             # Activate python enviroment
-pip install -r requirements.txt     # Installs all dependencies
-deactivate                          # To deactivate the enviroment
+pip install -r requirements.txt     # Install all dependencies
+deactivate                          # Deactivate the enviroment
 ```
 
 ## How to Run
 
 ```sh
 source env/bin/activate # Activate python enviroment
-python3 coffee-bot.py   # To run Coffeebot
-deactivate              # To deactivate the enviroment
+python3 coffee-bot.py   # Run Coffeebot
+deactivate              # Deactivate the enviroment
 ```
 
 Make some coffee!
 
 ## Backlog
-See 'Issues'
+See [Issues](https://github.com/phixarhasse/coffeebot/issues)
