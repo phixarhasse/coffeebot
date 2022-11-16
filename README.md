@@ -1,3 +1,4 @@
+# Note: this readme is outdated, an updated version is under way
 # coffeebot
 Responsible for watching the office's coffee maker and sending notifications to a Slack channel.
 
