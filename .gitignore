@@ -7,3 +7,5 @@ __pycache__/
 logs*
 hue_*
 urls*
+.env
+venv*
