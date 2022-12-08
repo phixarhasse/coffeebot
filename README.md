@@ -17,7 +17,7 @@ The Hue Bridge has an API through which coffeebot sets the color of all connecte
 ## How to Install the Bot
 
 The instructions assumes a working Python 3 enviroment. On `apt`-based operating systems try something like
-`apt install python3-pip python3-venv pkg-config`.
+`sudo apt install python3-pip python3-venv pkg-config libcairo2-dev python3-dev libgirepository1.0-dev`.
 
 ### _Note: The bot is currently calibrated for a Moccamaster KBG744 AO-B (double brewer)._
 
