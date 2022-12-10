@@ -17,7 +17,7 @@ The Hue Bridge has an API through which coffeebot sets the color of all connecte
 ## How to Install the Bot
 
 The instructions assumes a working Python 3 enviroment. On `apt`-based operating systems try something like
-`sudo apt install python3-pip python3-venv pkg-config libcairo2-dev python3-dev libgirepository1.0-dev`.
+`sudo apt install python3-pip python3-venv`.
 
 ### _Note: The bot is currently calibrated for a Moccamaster KBG744 AO-B (double brewer)._
 
@@ -35,10 +35,10 @@ SENSOR_URL=     # The complete URL to the Shelly Plug, e.g. "http://192.168.0.10
 
 3. Copy `hue-template` to `hue_username` and change to your username in the file
 4. If you chose to use Slack and/or Hue, the script will first setup these services. During Hue setup, you will be prompted to go press the button on the Hue Birdge to generate a token for the bot to use.
-5. source env/bin/activate             # Activate python enviroment
+5. python3 -m venv env                 # Create python virtual enviroment 
+5. source env/bin/activate             # Activate python virtual enviroment
 6. pip install -r requirements.txt     # Install all dependencies
 7. deactivate                          # Deactivate the enviroment
-
 
 ## How to Run the Bot
 
@@ -46,6 +46,12 @@ SENSOR_URL=     # The complete URL to the Shelly Plug, e.g. "http://192.168.0.10
 2. `python coffee-bot.py` run Coffeebot
 3. `deactivate` deactivates the enviroment
 4. Now the bot should be running, time to make some coffee!
+
+## Development
+
+If you add any extra dependencies run (while inside the python enviroment)
+`pip list --local --format=freeze > requirements.txt`
+to update the requirements.
 
 ## Backlog
 See [Issues](https://github.com/phixarhasse/coffeebot/issues)
