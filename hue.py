@@ -5,9 +5,14 @@ from dotenv import load_dotenv
 class Hue:
     def __init__(self):
         load_dotenv('.env')
-        self.useHue = os.environ['USE_HUE']
-        self.bridgeIp = os.environ['HUE_IP']
-        self.url = f"http://{self.bridgeIp}/api"
+        try:
+            self.useHue = os.environ['USE_HUE']
+            self.bridgeIp = os.environ['HUE_IP']
+            self.url = f"http://{self.bridgeIp}/api"
+        except KeyError:
+            print("Could not parse USE_HUE or HUE_IP in the file .env")
+            quit()
+            
         self.lights = []
         self.username = ""
         self.loadUsername()
