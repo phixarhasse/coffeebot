@@ -9,3 +9,4 @@ hue_*
 urls*
 .env
 venv*
+env/
