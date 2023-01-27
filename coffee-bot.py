@@ -10,12 +10,18 @@ from dotenv import load_dotenv
 import os
 import requests
 import time
+import signal
 from hue import Hue
 from slack import Slack
 
 # Dict representing brewer state
 STATE = {"brewing": False, "turnedOff": True, "coffeeDone": False}
 MEASURE_INTERVAL = 5 #seconds
+
+def interruptHandler(signum, frame):
+    msg = "Ctrl+C was pressed, closing gracefully."
+    print(msg, end="", flush=True)
+    # clean up database connection
 
 """
 Main loop

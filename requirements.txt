@@ -6,3 +6,4 @@ python-dotenv==0.21.0
 requests==2.28.1
 setuptools==59.6.0
 urllib3==1.26.13
+mysql_connector_python==8.0.32
