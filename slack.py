@@ -6,15 +6,23 @@ from dotenv import load_dotenv
 class Slack:
     def __init__(self):
         load_dotenv('.env')
-        self.useSlack = os.environ['USE_SLACK']
-        self.baseUrl = "https://slack.com/api/"
-        self.authToken = os.environ['SLACK_TOKEN']
-        self.channelId = os.environ['CHANNEL_ID']
+        try:
+            self.useSlack = os.environ['USE_SLACK']
+            self.baseUrl = "https://slack.com/api/"
+            self.authToken = os.environ['SLACK_TOKEN']
+            self.channelId = os.environ['CHANNEL_ID']
+        except KeyError:
+            print("Could not parse one or several of USE_SLACK; SLACK_TOKEN; CHANNEL_ID in the file .env")
+            quit()
         self.messages = {"brewing":"Nu bryggs det kaffe! :building_construction:",
                 "done":"Det finns kaffe! :coffee: :brown_heart:",
                 "off":"Bryggare avstängd. :broken_heart:",
                 "saving": "Någon räddar svalnande kaffe! :ambulance:"}
-        self.lastMessageTimestamp = self.getLastMessageTimestamp()
+        try:
+            self.lastMessageTimestamp = self.getLastMessageTimestamp()
+        except IndexError:
+            print("Could not retrieve the last Slack message.")
+            # quit()
 
     '''
     Returns: list with all messages in channel history, up to the first 100

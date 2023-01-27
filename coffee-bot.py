@@ -22,7 +22,13 @@ Main loop
 """
 def main() -> None:
     load_dotenv() # Load environment variables
-    sensor_url = os.environ['SENSOR_URL']
+
+    try:
+        sensor_url = os.environ['SENSOR_URL']
+    except KeyError:
+        print("Could not parse SENSOR_URL in the file .env")
+        quit()
+
     slack = Slack()
     hue = setupHue()
 
