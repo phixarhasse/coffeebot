@@ -1,11 +1,25 @@
+import os
 import requests
+from dotenv import load_dotenv
 
 class Hue:
-    def __init__(self, bridgeIp):
-        self.bridgeIp = bridgeIp
-        self.url = f"http://{bridgeIp}/api"
+    def __init__(self):
+        load_dotenv('.env')
+        try:
+            self.useHue = os.environ['USE_HUE']
+            self.bridgeIp = os.environ['HUE_IP']
+            self.url = f"http://{self.bridgeIp}/api"
+        except KeyError:
+            print("Could not parse USE_HUE or HUE_IP in the file .env")
+            quit()
+            
         self.lights = []
         self.username = ""
+        self.loadUsername()
+        if(self.username == ""):
+            print("Waiting for Hue authorization...")
+            self.authorize()
+            print("---> Hue Authorization complete!")
 
     def saveUsername(self, username):
         try:
