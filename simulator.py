@@ -15,6 +15,7 @@ VALUES = [0.0, 0.0, 0.0, 0.0,
 
 VALUE_SELECTOR = 0
 
+
 def incrementSelector():
     global VALUE_SELECTOR, VALUES
     VALUE_SELECTOR = (VALUE_SELECTOR + 1) % len(VALUES)
@@ -22,7 +23,8 @@ def incrementSelector():
 
 @app.route('/', methods=['GET'])
 def root():
-    return "Hello world!"
+    return {"message": "Hello world!"}
+
 
 @app.route('/meter/0', methods=['GET'])
 def getMeterValue():
@@ -30,5 +32,6 @@ def getMeterValue():
     simulatedValue = VALUES[VALUE_SELECTOR]
     incrementSelector()
     return {"power": simulatedValue}
+
 
 app.run(host='localhost', port=5000)
