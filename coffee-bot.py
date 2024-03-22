@@ -45,6 +45,7 @@ async def main() -> None:
         slack = Slack()
     if (os.getenv("USE_HUE") == "True"):
         hue = Hue()
+        hue.getLights()
 
     db = None
     if (os.getenv("STORE_DATA") == "True"):
@@ -86,6 +87,7 @@ async def main() -> None:
 
         # Idle, don't send messages
         elif (power == 0.0 and STATE["turnedOff"]):
+            time.sleep(MEASURE_INTERVAL)
             continue
 
         time.sleep(MEASURE_INTERVAL)
@@ -106,12 +108,12 @@ def loadAndCheckEnvironment():
         quit(1)
 
     try:
-        use_slack = os.getenv("USE_SLACK")
+        use_slack = os.getenv("USE_SLACK") == "True"
         slack_token = os.getenv("SLACK_TOKEN")
         slack_channel = os.getenv("SLACK_CHANNEL")
-        use_hue = os.getenv("USE_HUE")
+        use_hue = os.getenv("USE_HUE") == "True"
         hue_ip = os.getenv("HUE_IP")
-        store_data = os.getenv("STORE_DATA")
+        store_data = os.getenv("STORE_DATA") == "True"
         mongodb_connection_string = os.getenv("MONGODB_CONNECTION_STRING")
         mongodb_database = os.getenv("MONGODB_DATABASE")
         mongodb_collection = os.getenv("MONGODB_COLLECTION")
