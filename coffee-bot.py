@@ -1,4 +1,4 @@
-# Version 4.0.0
+# Version 4.0.1
 # Shelly API doc: https://shelly-api-docs.shelly.cloud/
 # This code is calibrated for a Moccamaster KBG744 AO-B (double brewer with 2 pots).
 
@@ -13,9 +13,9 @@ import time
 import asyncio
 import logging
 import requests
-from hue import Hue
-from slack import Slack
-from db.mongodb import MongoDb
+from services.hue.hue import Hue
+from services.slack.slack import Slack
+from services.db.mongodb import MongoDb
 from dotenv import load_dotenv
 
 # Dict representing brewer state
@@ -62,7 +62,7 @@ async def main() -> None:
         power = await measure(sensor_url, db=db)
         if (power == -1.0):
             # Power is still changing or an exception occured, wait and measure again
-            time.sleep(MEASURE_INTERVAL/2)
+            time.sleep(MEASURE_INTERVAL)
             continue
 
         # Heating old coffee
