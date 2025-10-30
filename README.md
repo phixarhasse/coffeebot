@@ -34,7 +34,7 @@ SENSOR_URL=     # The complete URL to the Shelly Plug, e.g. "http://192.168.0.10
 ```
 
 3. Copy `hue-template` to `hue_username` and change to your username in the file
-4. If you chose to use Slack and/or Hue, the script will first setup these services. During Hue setup, you will be prompted to go press the button on the Hue Birdge to generate a token for the bot to use.
+4. If you chose to use Slack and/or Hue, the script will first setup these services. During Hue setup, you will be prompted to go press the button on the Hue Bridge to generate a token for the bot to use.
 5. python3 -m venv env                 # Create python virtual enviroment 
 5. source env/bin/activate             # Activate python virtual enviroment
 6. pip install -r requirements.txt     # Install all dependencies

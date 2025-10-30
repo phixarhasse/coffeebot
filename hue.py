@@ -5,11 +5,15 @@ import requests
 
 class Hue:
     def __init__(self):
-        logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s',
-                            level=logging.DEBUG, datefmt="%Y-%m-%d %H:%M:%S")
+        logging.basicConfig(
+            format="%(asctime)s %(levelname)s: %(message)s",
+            level=logging.DEBUG,
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
         try:
-            self.bridgeIp = os.getenv('HUE_IP')
+            self.bridgeIp = os.getenv("HUE_IP")
             self.url = f"http://{self.bridgeIp}/api"
+            self.urlV2 = f"http://{self.bridgeIp}/clip/v2"
         except KeyError:
             logging.error("Could not parse HUE_IP in the file .env")
             quit(1)
@@ -43,19 +47,45 @@ class Hue:
     def authorize(self):
         self.username = ""
         try:
-            hueResponse = requests.post(
-                self.url, json={"devicetype": "coffeebot"})
+            hueResponse = requests.post(self.url, json={"devicetype": "coffeebot"})
             # Need to generate username
             if (hueResponse.json()[0]["error"]["type"] == 101):
-                logging.info(
-                    "\tPlease press the link button on the HUE Bridge.")
+                logging.info("\tPlease press the link button on the HUE Bridge.")
                 user_input = input("Have you pressed it? [y/n] ")
-                if (not user_input == 'y'):
+                if (not user_input == "y"):
                     logging.info("\tHue authentication cancelled. Exiting.")
                     quit(0)
                 else:
                     hueResponse = requests.post(
-                        self.url, json={"devicetype": "coffeebot"})
+                        self.url, json={"devicetype": "coffeebot"}
+                    )
+                    username = hueResponse.json()[0]["success"]["username"]
+                    self.username = username
+                    self.saveUsername(username)
+            elif (hueResponse.ok):
+                username = hueResponse.json()[0]["success"]["username"]
+                self.username = username
+                self.saveUsername(username)
+        except Exception as e:
+            logging.error("Error during Hue authentication.")
+            logging.error("Exception: ", e)
+            quit(1)
+
+    def authorizeV2(self):
+        self.username = ""
+        try:
+            hueResponse = requests.post(self.urlV2, json={"devicetype": "coffeebot"})
+            # Need to generate username
+            if (hueResponse.json()[0]["error"]["type"] == 101):
+                logging.info("\tPlease press the link button on the HUE Bridge.")
+                user_input = input("Have you pressed it? [y/n] ")
+                if (not user_input == "y"):
+                    logging.info("\tHue authentication cancelled. Exiting.")
+                    quit(0)
+                else:
+                    hueResponse = requests.post(
+                        self.urlV2, json={"devicetype": "coffeebot"}
+                    )
                     username = hueResponse.json()[0]["success"]["username"]
                     self.username = username
                     self.saveUsername(username)
@@ -84,6 +114,26 @@ class Hue:
             self.lights.append(light)
         return
 
+    def getLightsV2(self):
+        headers = {"hue-application-key": {self.username}}
+        self.lights = []
+        if (self.username == ""):
+            return
+        try:
+            hueResponse = requests.get(
+                f"{self.urlV2}/resource/light/",
+                headers=headers,
+            )
+            if (not hueResponse.ok):
+                logging.warning("Unable to get Hue lights.")
+                return
+        except Exception as e:
+            logging.error(e)
+            return
+        for light in hueResponse.json():
+            self.lights.append(light)
+        return
+
     def setAllLights(self, color):
         try:
             for light in self.lights:
@@ -95,12 +145,43 @@ class Hue:
             logging.error(e)
             return
 
+    def setAllLightsV2(self, colorX, colorY):
+        headers = {"hue-application-key": {self.username}}
+        try:
+            for light in self.lights:
+                hueResponse = requests.put(
+                    f"{self.urlV2}/resource/light/{light}",
+                    headers=headers,
+                    json={
+                        "dimming": {"brightness": 200.0},
+                        "color": {"xy": {"x": colorX, "y": colorY}},
+                    },
+                )
+                logging.debug(f"Hue light V2 {light}: {hueResponse.status_code}")
+        except Exception as e:
+            logging.error(e)
+            return
+
     def turnOffAllLights(self):
         try:
             for light in self.lights:
                 hueResponse = requests.put(
                     f"{self.url}/{self.username}/lights/{light}/state",
                     json={"on": False})
+                logging.debug(f"Hue light {light}: {hueResponse.status_code}")
+        except Exception as e:
+            logging.error(e)
+            return
+
+    def turnOffAllLightsV2(self):
+        headers = {"hue-application-key": {self.username}}
+        try:
+            for light in self.lights:
+                hueResponse = requests.put(
+                    f"{self.urlV2}/resource/light/{light}",
+                    headers=headers,
+                    json={"on": {"on": False}},
+                )
                 logging.debug(f"Hue light {light}: {hueResponse.status_code}")
         except Exception as e:
             logging.error(e)
