@@ -71,33 +71,6 @@ class Hue:
             logging.error("Exception: ", e)
             quit(1)
 
-    def authorizeV2(self):
-        self.username = ""
-        try:
-            hueResponse = requests.post(self.urlV2, json={"devicetype": "coffeebot"})
-            # Need to generate username
-            if (hueResponse.json()[0]["error"]["type"] == 101):
-                logging.info("\tPlease press the link button on the HUE Bridge.")
-                user_input = input("Have you pressed it? [y/n] ")
-                if (not user_input == "y"):
-                    logging.info("\tHue authentication cancelled. Exiting.")
-                    quit(0)
-                else:
-                    hueResponse = requests.post(
-                        self.urlV2, json={"devicetype": "coffeebot"}
-                    )
-                    username = hueResponse.json()[0]["success"]["username"]
-                    self.username = username
-                    self.saveUsername(username)
-            elif (hueResponse.ok):
-                username = hueResponse.json()[0]["success"]["username"]
-                self.username = username
-                self.saveUsername(username)
-        except Exception as e:
-            logging.error("Error during Hue authentication.")
-            logging.error("Exception: ", e)
-            quit(1)
-
     def getLights(self):
         self.lights = []
         if (self.username == ""):
