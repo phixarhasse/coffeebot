@@ -1,6 +1,8 @@
 import os
+import json
 import logging
 import requests
+from brewingState import BrewingState
 
 
 class Hue:
@@ -11,6 +13,7 @@ class Hue:
             datefmt="%Y-%m-%d %H:%M:%S",
         )
         try:
+            logging.debug(f"Initializing Hue class")
             self.bridgeIp = os.getenv("HUE_IP")
             self.url = f"http://{self.bridgeIp}/api"
             self.urlV2 = f"http://{self.bridgeIp}/clip/v2"
@@ -31,6 +34,7 @@ class Hue:
             f = open("hue_username", "w")
             f.write(username)
             f.close()
+            logging.debug(f"Saved user name.")
         except Exception as e:
             logging.error(e)
 
@@ -39,6 +43,7 @@ class Hue:
             f = open("hue_username", "r")
             self.username = f.readline()
             f.close()
+            logging.debug(f"Loaded user name.")
         except Exception as e:
             logging.error(e)
             self.username = ""
@@ -46,6 +51,7 @@ class Hue:
 
     def authorize(self):
         self.username = ""
+        logging.debug(f"Starting authorization process.")
         try:
             hueResponse = requests.post(self.url, json={"devicetype": "coffeebot"})
             # Need to generate username
@@ -58,33 +64,6 @@ class Hue:
                 else:
                     hueResponse = requests.post(
                         self.url, json={"devicetype": "coffeebot"}
-                    )
-                    username = hueResponse.json()[0]["success"]["username"]
-                    self.username = username
-                    self.saveUsername(username)
-            elif (hueResponse.ok):
-                username = hueResponse.json()[0]["success"]["username"]
-                self.username = username
-                self.saveUsername(username)
-        except Exception as e:
-            logging.error("Error during Hue authentication.")
-            logging.error("Exception: ", e)
-            quit(1)
-
-    def authorizeV2(self):
-        self.username = ""
-        try:
-            hueResponse = requests.post(self.urlV2, json={"devicetype": "coffeebot"})
-            # Need to generate username
-            if (hueResponse.json()[0]["error"]["type"] == 101):
-                logging.info("\tPlease press the link button on the HUE Bridge.")
-                user_input = input("Have you pressed it? [y/n] ")
-                if (not user_input == "y"):
-                    logging.info("\tHue authentication cancelled. Exiting.")
-                    quit(0)
-                else:
-                    hueResponse = requests.post(
-                        self.urlV2, json={"devicetype": "coffeebot"}
                     )
                     username = hueResponse.json()[0]["success"]["username"]
                     self.username = username
@@ -115,7 +94,9 @@ class Hue:
         return
 
     def getLightsV2(self):
-        headers = {"hue-application-key": {self.username}}
+        # headers = {"Authorization": f"Bearer {self.authToken}"}
+        headers = {"hue-application-key": f"{self.username}"}
+        logging.debug(f"getLightsV2 with headers: {headers}")
         self.lights = []
         if (self.username == ""):
             return
@@ -125,7 +106,8 @@ class Hue:
                 headers=headers,
             )
             if (not hueResponse.ok):
-                logging.warning("Unable to get Hue lights.")
+                response = format(hueResponse.status_code, hueResponse.text)
+                logging.warning(f"Unable to get Hue lights. {response}")
                 return
         except Exception as e:
             logging.error(e)
@@ -146,7 +128,8 @@ class Hue:
             return
 
     def setAllLightsV2(self, colorX, colorY):
-        headers = {"hue-application-key": {self.username}}
+        headers = {"hue-application-key": f"{self.username}"}
+        logging.debug(f"setAllLightsV2 with headers: {headers}")
         try:
             for light in self.lights:
                 hueResponse = requests.put(
@@ -174,13 +157,50 @@ class Hue:
             return
 
     def turnOffAllLightsV2(self):
-        headers = {"hue-application-key": {self.username}}
+        headers = {"hue-application-key": f"{self.username}"}
+        logging.debug(f"turnOffAllLightsV2 with headers: {headers}")
         try:
             for light in self.lights:
                 hueResponse = requests.put(
                     f"{self.urlV2}/resource/light/{light}",
                     headers=headers,
                     json={"on": {"on": False}},
+                )
+                logging.debug(f"Hue light {light}: {hueResponse.status_code}")
+        except Exception as e:
+            logging.error(e)
+            return
+
+    def setBrewingLights(self):
+        headers = {"hue-application-key": f"{self.username}"}
+        logging.debug(f"setBrewingLights with headers: {headers}")
+        try:
+            brewingState = BrewingState(BrewingState.Dimming(100.0), BrewingState.Color(0.4931, 0.455), "sparkle", BrewingState.Parameters(BrewingState.Color(0.4931, 0.455), BrewingState.ColorTemperature(153, False), 0.5))
+            jsonState = json.dumps(brewingState.reprJSON(), cls=BrewingState.ComplexEncoder)
+
+            for light in self.lights:
+                hueResponse = requests.put(
+                    f"{self.urlV2}/resource/light/{light}",
+                    headers=headers,
+                    json = jsonState
+                )
+                logging.debug(f"Hue light {light}: {hueResponse.status_code}")
+        except Exception as e:
+            logging.error(e)
+            return
+
+    def setCoffeeIsDoneLights(self):
+        headers = {"hue-application-key": f"{self.username}"}
+        logging.debug(f"setCoffeeIsDoneLights with headers: {headers}")
+        try:
+            brewingState = BrewingState(BrewingState.Dimming(100.0), BrewingState.Color(0.1673, 0.5968), "sparkle", BrewingState.Parameters(BrewingState.Color(0.1673, 0.5968), BrewingState.ColorTemperature(153, False), 0.5))
+            jsonState = json.dumps(brewingState.reprJSON(), cls=BrewingState.ComplexEncoder)
+
+            for light in self.lights:
+                hueResponse = requests.put(
+                    f"{self.urlV2}/resource/light/{light}",
+                    headers=headers,
+                    json = jsonState
                 )
                 logging.debug(f"Hue light {light}: {hueResponse.status_code}")
         except Exception as e:
