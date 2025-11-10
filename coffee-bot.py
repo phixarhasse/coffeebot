@@ -48,14 +48,14 @@ async def main() -> None:
     if (os.getenv("USE_SLACK") == "True"):
         slack = Slack()
     if (os.getenv("USE_HUE") == "True"):
-        logging.debug(f"Coffee-bot main: Initializing Hue class.")
+        logging.debug(f"Coffee-bot.main: Initializing Hue class.")
         hue = Hue()
-        logging.debug(f"Coffee-bot main: Hue class initialized.")
+        logging.debug(f"Coffee-bot.main: Hue class initialized.")
         hue.getLightsV2()
 
     db = None
     if (os.getenv("STORE_DATA") == "True"):
-        logging.info("Connecting to MongoDb Database...")
+        logging.info("Coffee-bot.main: Connecting to MongoDb Database...")
         try:
             db = MongoDb(
                 url=os.getenv("MONGODB_CONNECTION_STRING"),
@@ -64,7 +64,7 @@ async def main() -> None:
             )
             logging.info("MongoDb Database connection successful")
         except Exception as e:
-            logging.error(f"Failed to connect to MongoDb Database: {e}")
+            logging.error(f"Coffee-bot.main: Failed to connect to MongoDb Database: {e}")
             quit(1)
 
     while (True):
@@ -108,14 +108,14 @@ async def main() -> None:
 def loadAndCheckEnvironment():
     env_loaded = load_dotenv(".env")  # Load environment variables
     if (not env_loaded):
-        logging.error("Could not load .env file. Exiting.")
+        logging.error("Coffee-bot.loadAndCheckEnvironment: Could not load .env file. Exiting.")
         quit(1)
     try:
         sensor_url = os.getenv("SENSOR_URL")
         if (sensor_url == "" or sensor_url is None):
             raise KeyError
     except KeyError:
-        logging.error("Could not parse SENSOR_URL in the file '.env'. Exiting.")
+        logging.error("Coffee-bot.loadAndCheckEnvironment: Could not parse SENSOR_URL in the file '.env'. Exiting.")
         quit(1)
 
     try:
@@ -134,11 +134,11 @@ def loadAndCheckEnvironment():
             quit(1)
         elif (use_slack and (slack_token == "" or slack_channel == "")):
             logging.error(
-                "Slack is active but missing auth token and/or channel ID. Exiting."
+                "Coffee-bot.loadAndCheckEnvironment: Slack is active but missing auth token and/or channel ID. Exiting."
             )
             quit(1)
         elif (use_hue and hue_ip == ""):
-            logging.error("Hue is active but missing bridge IP address. Exiting.")
+            logging.error("Coffee-bot.loadAndCheckEnvironment: Hue is active but missing bridge IP address. Exiting.")
             quit(1)
         elif (store_data and (
             mongodb_connection_string == ""
@@ -146,13 +146,13 @@ def loadAndCheckEnvironment():
             or mongodb_collection == ""
         )):
             logging.error(
-                "Storing data is active but missing MongoDB connection string, database name or collection name. Exiting."
+                "Coffee-bot.loadAndCheckEnvironment: Storing data is active but missing MongoDB connection string, database name or collection name. Exiting."
             )
             quit(1)
 
     except KeyError:
         logging.error(
-            "Could not parse one or more environment variables in the file '.env'. Exiting."
+            "Coffee-bot.loadAndCheckEnvironment: Could not parse one or more environment variables in the file '.env'. Exiting."
         )
         quit(1)
 
@@ -177,7 +177,7 @@ async def measure(sensor_url: str, db: MongoDb | None) -> float:
     # Increase tolerance for higher values
     if (value1 > 2000.0):
         tolerance = 80
-    logging.debug(f"{value1} Watt")
+    logging.debug(f"Coffee-bot.measure: {value1} Watt")
     time.sleep(MEASURE_INTERVAL)
     try:
         response = requests.request("GET", sensor_url)
@@ -187,7 +187,7 @@ async def measure(sensor_url: str, db: MongoDb | None) -> float:
     value2 = float(response.json()["power"])
     if (db):
         await db.store(value2)
-    logging.debug(f"{value2} Watt")
+    logging.debug(f"Coffee-bot.measure: {value2} Watt")
 
     # If diff is larger than tolerance, the power is still changing
     # Diffs lower than 1.0 are ignored
@@ -216,7 +216,7 @@ Messaging and Hue control functions
 
 
 def heatingOldCoffee(hue: Hue | None, slack: Slack | None) -> None:
-    logging.info("Heating old coffee.")
+    logging.info("Coffee-bot.heatingOldCoffee: Heating old coffee.")
     if (slack):
         slack.deleteLastMessage()
         slack.postMessage(slack.messages["saving"])
@@ -229,7 +229,7 @@ def heatingOldCoffee(hue: Hue | None, slack: Slack | None) -> None:
 
 
 def coffeeIsBrewing(hue: Hue | None, slack: Slack | None) -> None:
-    logging.info("Coffee is brewing.")
+    logging.info("Coffee-bot.coffeeIsBrewing: Coffee is brewing.")
     if (slack):
         slack.deleteLastMessage()
         slack.postMessage(slack.messages["brewing"])
@@ -244,7 +244,7 @@ def coffeeIsBrewing(hue: Hue | None, slack: Slack | None) -> None:
 
 def freshCoffeeHasBeenMade(hue: Hue | None, slack: Slack | None) -> None:
     time.sleep(30)  # Wait 30 seconds for coffee to drip down
-    logging.info("Fresh coffee has been made.")
+    logging.info("Coffee-bot.freshCoffeeHasBeenMade: Fresh coffee has been made.")
     if (slack):
         slack.deleteLastMessage()
         slack.postMessage(slack.messages["done"])
@@ -265,7 +265,7 @@ def freshCoffeeHasBeenMade(hue: Hue | None, slack: Slack | None) -> None:
 
 
 def coffeeMakerTurnedOff(hue: Hue | None, slack: Slack | None) -> None:
-    logging.info("Coffee maker turned off.")
+    logging.info("Coffee-bot.coffeeMakerTurnedOff: Coffee maker turned off.")
     resetState()
     if (slack):
         slack.deleteLastMessage()

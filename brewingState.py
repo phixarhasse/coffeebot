@@ -73,7 +73,7 @@ class Effects_v2:
 class BrewingState:
    
 	def __init__(self, dimming=None, color=None, effect=None, parameters=None):
-		self.Dimming = 100.0 if dimming is None else dimming 
+		self.Dimming = Dimming(100.0) if dimming is None else dimming 
 		self.Color = color 
 		self.Effects_v2 = None if effect is None else Effects_v2(effect, parameters)
 
