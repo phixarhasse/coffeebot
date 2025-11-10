@@ -131,7 +131,7 @@ class Hue:
 
     def setAllLightsV2(self, colorX, colorY):
         headers = {"hue-application-key": f"{self.username}"}
-        logging.debug(f"Hue.setAllLightsV2: Setting lights with headers: {headers} and {self.lights.count()} number of lights.")
+        logging.debug(f"Hue.setAllLightsV2: Setting lights with headers: {headers} and {len(self.lights)} number of lights.")
         try:
             for light in self.lights:
                 hueResponse = requests.put(
@@ -175,7 +175,7 @@ class Hue:
 
     def setBrewingLights(self):
         headers = {"hue-application-key": f"{self.username}"}
-        logging.debug(f"Hue.setBrewingLights: Brewing has started with headers: {headers} and {self.lights.count()} number of lights.")
+        logging.debug(f"Hue.setBrewingLights: Brewing has started with headers: {headers} and {len(self.lights)} number of lights.")
         try:
             brewingState = BrewingState(BrewingState.Dimming(100.0), BrewingState.Color(0.4931, 0.455), "sparkle", BrewingState.Parameters(BrewingState.Color(0.4931, 0.455), BrewingState.ColorTemperature(153, False), 0.5))
             jsonState = json.dumps(brewingState.reprJSON(), cls=BrewingState.ComplexEncoder)
@@ -193,7 +193,7 @@ class Hue:
 
     def setCoffeeIsDoneLights(self):
         headers = {"hue-application-key": f"{self.username}"}
-        logging.debug(f"Hue.setCoffeeIsDoneLights: Coffee is ready with headers: {headers} and {self.lights.count()} number of lights.")
+        logging.debug(f"Hue.setCoffeeIsDoneLights: Coffee is ready with headers: {headers} and {len(self.lights)} number of lights.")
         try:
             brewingState = BrewingState(BrewingState.Dimming(100.0), BrewingState.Color(0.1673, 0.5968), "sparkle", BrewingState.Parameters(BrewingState.Color(0.1673, 0.5968), BrewingState.ColorTemperature(153, False), 0.5))
             jsonState = json.dumps(brewingState.reprJSON(), cls=BrewingState.ComplexEncoder)
