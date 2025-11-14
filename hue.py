@@ -1,8 +1,8 @@
-import os
 import json
 import logging
+import os
 import requests
-from brewingState import BrewingState
+from brewingStateHelper import BrewingState, Dimming, Color, ColorTemperature, Parameters, ComplexEncoder
 
 
 class Hue:
@@ -15,8 +15,8 @@ class Hue:
         try:
             logging.debug(f"Hue.__init__: Initializing Hue class")
             self.bridgeIp = os.getenv("HUE_IP")
-            self.url = f"http://{self.bridgeIp}/api"
-            self.urlV2 = f"http://{self.bridgeIp}/clip/v2"
+            self.url = f"https://{self.bridgeIp}/api"
+            self.urlV2 = f"https://{self.bridgeIp}/clip/v2"
         except KeyError:
             logging.error("Hue.__init__: Could not parse HUE_IP in the file .env")
             quit(1)
@@ -29,6 +29,7 @@ class Hue:
             self.authorize()
             logging.info("---> Hue Authorization complete!")
 
+
     def saveUsername(self, username):
         try:
             f = open("hue_username", "w")
@@ -37,6 +38,7 @@ class Hue:
             logging.debug(f"Saved user name.")
         except Exception as e:
             logging.error(e)
+
 
     def loadUsername(self):
         try:
@@ -47,7 +49,7 @@ class Hue:
         except Exception as e:
             logging.error(e)
             self.username = ""
-            return
+
 
     def authorize(self):
         self.username = ""
@@ -77,134 +79,181 @@ class Hue:
             logging.error("Exception: ", e)
             quit(1)
 
-    def getLights(self):
-        self.lights = []
-        if (self.username == ""):
-            return
-        try:
-            hueResponse = requests.get(f"{self.url}/{self.username}/lights/")
-            if (not hueResponse.ok):
-                logging.warning("Unable to get Hue lights.")
-                return
-        except Exception as e:
-            logging.error(e)
-            return
-        for light in hueResponse.json():
-            self.lights.append(light)
-        return
 
-    def getLightsV2(self):
-        # headers = {"Authorization": f"Bearer {self.authToken}"}
-        # headers = {"hue-application-key": {self.username}}
+    def initializeLights(self):
+
         headers = {'hue-application-key': f"{self.username}"}
-        logging.debug(f"Hue.getLightsV2: Getting all lights with headers: {headers}")
         self.lights = []
         if (self.username == ""):
             return
         try:
             hueResponse = requests.get(
-                f"{self.urlV2}/resource/light/",
-                headers=headers,
+                f"{self.urlV2}/resource/light",
+                headers = headers, 
+                verify = False
             )
             if (not hueResponse.ok):
                 logging.warning(f"Hue.getLightsV2: Unable to get Hue lights V2, got the response {hueResponse.status_code} {hueResponse.text}")
-                # response = format(hueResponse.status_code, hueResponse.text)
-                # logging.warning(f"Unable to get Hue lights. {response}")
                 return
+
         except Exception as e:
             logging.error(e)
             return
-        for light in hueResponse.json():
+        for light in hueResponse.json()["data"]:
             self.lights.append(light)
-        return
+        logging.debug(f"Hue.getLightsV2: Hue lights V2 retrieved and saved to: {self.lights}")
 
-    def setAllLights(self, color):
+
+    def getLightV2(self, lightId = None):
+
+        headers = {"hue-application-key": f"{self.username}"}
+
+        if(lightId is None):
+            logging.error("Hue.getLightV2: No light ID provided.")
+            return
+
+        if (self.username == ""):
+            logging.error("Hue.getLightV2: No username loaded.")
+            return
+
         try:
-            for light in self.lights:
-                hueResponse = requests.put(
-                    f"{self.url}/{self.username}/lights/{light}/state",
-                    json={"on": True, "sat": 254, "bri": 200, "hue": color})
-                logging.debug(f"Hue light {light}: {hueResponse.status_code}")
+            hueResponse = requests.get(
+                f"{self.urlV2}/resource/light/{lightId}",
+                headers = headers, 
+                verify = False
+            )
+            if (not hueResponse.ok):
+                logging.warning(f"Hue.getLightV2: Unable to get Hue light info, got the response {hueResponse.status_code} {hueResponse.text}")
+                return
+            logging.debug(f"Hue.getLightV2: Hue light {hueResponse.json()} info retrieved.")
         except Exception as e:
             logging.error(e)
             return
+        
+        return hueResponse.json()["data"]
 
-    def setAllLightsV2(self, colorX, colorY):
+
+# API v1: json={"on": True, "sat": 254, "bri": 200, "hue": color})
+# The different values of [color] used earlier:
+# 29000 - green - heating old coffee - "xy": [0.1673,0.5968]
+# 10000 - yellow - brewing - "xy": [0.4878,0.4613]
+# 29000 - green - coffee is done
+# 10000 - yellow - still brewing
+# 65000 - red - turned off - "xy": [0.6758,0.3007]
+    def setAllLightsV2(self, colorX, colorY) -> None:
+
         headers = {"hue-application-key": f"{self.username}"}
-        logging.debug(f"Hue.setAllLightsV2: Setting lights with headers: {headers} and {len(self.lights)} number of lights.")
+
         try:
             for light in self.lights:
                 hueResponse = requests.put(
                     f"{self.urlV2}/resource/light/{light}",
                     headers=headers,
                     json={
-                        "dimming": {"brightness": 200.0},
+                        "dimming": {"brightness": 78.66},
                         "color": {"xy": {"x": colorX, "y": colorY}},
                     },
                 )
-                logging.debug(f"Hue.setAllLightsV2: Hue light V2 {light}: {hueResponse.status_code}")
+                logging.debug(f"Hue.setAllLightsV2: Hue light V2 {light} is lit : {hueResponse.status_code}")
         except Exception as e:
             logging.error(e)
-            return
 
-    def turnOffAllLights(self):
-        try:
-            for light in self.lights:
-                hueResponse = requests.put(
-                    f"{self.url}/{self.username}/lights/{light}/state",
-                    json={"on": False})
-                logging.debug(f"Hue light {light}: {hueResponse.status_code}")
-        except Exception as e:
-            logging.error(e)
-            return
 
-    def turnOffAllLightsV2(self):
+    def setLightV2(self, colorX, colorY, lightId = None) -> None:
+
         headers = {"hue-application-key": f"{self.username}"}
-        logging.debug(f"Hue.turnOffAllLightsV2: Turning off lights with headers: {headers}")
+
+        if(lightId is None):
+            logging.error("Hue.setLightV2: No light ID provided.")
+            return
+        
+        if (self.username == ""):
+            logging.error("Hue.setLightV2: No username loaded.")
+            return
+
+        try:
+            hueResponse = requests.put(
+                f"{self.urlV2}/resource/light/{lightId}",
+                headers = headers, 
+                verify = False,
+                json = {
+                    "dimming": {"brightness": 78.66},
+                    "color": {"xy": {"x": colorX, "y": colorY}},
+                },
+            )
+            logging.debug(f"Hue.setLightV2: Hue light V2 {lightId} responded with: {hueResponse.status_code}, {hueResponse.text}")
+        except Exception as e:
+            logging.error(e)
+
+
+    def turnOffAllLightsV2(self) -> None:
+
+        headers = {"hue-application-key": f"{self.username}"}
         try:
             for light in self.lights:
                 hueResponse = requests.put(
                     f"{self.urlV2}/resource/light/{light}",
-                    headers=headers,
-                    json={"on": {"on": False}},
+                    headers = headers,
+                    verify = False,
+                    json = {"on": {"on": False}},
                 )
                 logging.debug(f"Hue.turnOffAllLightsV2: Hue light {light}: {hueResponse.status_code}")
         except Exception as e:
             logging.error(e)
-            return
 
-    def setBrewingLights(self):
+
+    def setBrewingLights(self) -> None:
+
         headers = {"hue-application-key": f"{self.username}"}
-        logging.debug(f"Hue.setBrewingLights: Brewing has started with headers: {headers} and {len(self.lights)} number of lights.")
         try:
-            brewingState = BrewingState(BrewingState.Dimming(100.0), BrewingState.Color(0.4931, 0.455), "sparkle", BrewingState.Parameters(BrewingState.Color(0.4931, 0.455), BrewingState.ColorTemperature(153, False), 0.5))
-            jsonState = json.dumps(brewingState.reprJSON(), cls=BrewingState.ComplexEncoder)
+            brewingState = BrewingState(Dimming(78.66), Color(0.4931, 0.455), "sparkle", Parameters(Color(0.4931, 0.455), ColorTemperature(153, False), 0.5))
+            jsonState = json.dumps(brewingState.reprJSON(), cls = ComplexEncoder)
 
             for light in self.lights:
                 hueResponse = requests.put(
                     f"{self.urlV2}/resource/light/{light}",
-                    headers=headers,
+                    headers = headers,
+                    verify = False,
                     json = jsonState
                 )
                 logging.debug(f"Hue.setBrewingLights: Hue light {light}: {hueResponse.status_code}")
         except Exception as e:
             logging.error(e)
-            return
 
-    def setCoffeeIsDoneLights(self):
+
+    def setCoffeeIsDoneLights(self) -> None:
+
         headers = {"hue-application-key": f"{self.username}"}
-        logging.debug(f"Hue.setCoffeeIsDoneLights: Coffee is ready with headers: {headers} and {len(self.lights)} number of lights.")
         try:
-            brewingState = BrewingState(BrewingState.Dimming(100.0), BrewingState.Color(0.1673, 0.5968), "sparkle", BrewingState.Parameters(BrewingState.Color(0.1673, 0.5968), BrewingState.ColorTemperature(153, False), 0.5))
-            jsonState = json.dumps(brewingState.reprJSON(), cls=BrewingState.ComplexEncoder)
+            brewingState = BrewingState(Dimming(78.66), Color(0.1673, 0.5968), None, Parameters(Color(0.1673, 0.5968), ColorTemperature(153, False)))
+            jsonState = json.dumps(brewingState.reprJSON(), cls = ComplexEncoder)
 
             for light in self.lights:
                 hueResponse = requests.put(
                     f"{self.urlV2}/resource/light/{light}",
-                    headers=headers,
+                    headers = headers,
+                    verify = False,
                     json = jsonState
                 )
                 logging.debug(f"Hue.setCoffeeIsDoneLights: Hue light {light}: {hueResponse.status_code}")
         except Exception as e:
             logging.error(e)
-            return
+
+
+    def setCoffeeMakerTurnedOff(self) -> None:
+
+        headers = {"hue-application-key": f"{self.username}"}
+        try:
+            brewingState = BrewingState(None, Color(0.6758, 0.3008), None, Parameters(Color(0.6758, 0.3008), ColorTemperature(153, False)))
+            jsonState = json.dumps(brewingState.reprJSON(), cls = ComplexEncoder)
+
+            for light in self.lights:
+                hueResponse = requests.put(
+                    f"{self.urlV2}/resource/light/{light}",
+                    headers = headers,
+                    verify = False,
+                    json = jsonState
+                )
+                logging.debug(f"Hue.setCoffeeMakerTurnedOff: Hue light {light}: {hueResponse.status_code}")
+        except Exception as e:
+            logging.error(e)

@@ -50,17 +50,16 @@ async def main() -> None:
     if (os.getenv("USE_HUE") == "True"):
         logging.debug(f"Coffee-bot.main: Initializing Hue class.")
         hue = Hue()
-        logging.debug(f"Coffee-bot.main: Hue class initialized.")
-        hue.getLightsV2()
+        hue.initializeLights()
 
     db = None
     if (os.getenv("STORE_DATA") == "True"):
         logging.info("Coffee-bot.main: Connecting to MongoDb Database...")
         try:
             db = MongoDb(
-                url=os.getenv("MONGODB_CONNECTION_STRING"),
-                db=os.getenv("MONGODB_DATABASE"),
-                collection=os.getenv("MONGODB_COLLECTION"),
+                url = os.getenv("MONGODB_CONNECTION_STRING"),
+                db = os.getenv("MONGODB_DATABASE"),
+                collection = os.getenv("MONGODB_COLLECTION"),
             )
             logging.info("MongoDb Database connection successful")
         except Exception as e:
@@ -68,6 +67,7 @@ async def main() -> None:
             quit(1)
 
     while (True):
+        
         power = await measure(sensor_url, db=db)
         if (power == -1.0):
             # Power is still changing or an exception occured, wait and measure again
@@ -88,10 +88,8 @@ async def main() -> None:
             freshCoffeeHasBeenMade(hue, slack)
 
         # Coffee is brewing
-        elif (power > 1000.0): #and not STATE["brewing"]):
+        elif (power > 1000.0 and not STATE["brewing"]):
             coffeeIsBrewing(hue, slack)
-            # if (hue):
-            #   hue.setBrewingLights()
 
         # Coffee maker turned off
         elif (power == 0.0 and not STATE["turnedOff"]):
@@ -234,12 +232,11 @@ def coffeeIsBrewing(hue: Hue | None, slack: Slack | None) -> None:
         slack.deleteLastMessage()
         slack.postMessage(slack.messages["brewing"])
 
-    STATE["brewing"] = True
-    STATE["turnedOff"] = False
-
     if (hue):
         hue.setBrewingLights()
-        # hue.setAllLightsV2(0.4878, 0.4613)  # yellow
+
+    STATE["brewing"] = True
+    STATE["turnedOff"] = False
 
 
 def freshCoffeeHasBeenMade(hue: Hue | None, slack: Slack | None) -> None:
@@ -250,18 +247,10 @@ def freshCoffeeHasBeenMade(hue: Hue | None, slack: Slack | None) -> None:
         slack.postMessage(slack.messages["done"])
 
     if (hue):
-        # hue.setAllLightsV2(0.1673, 0.5968)  # green
         hue.setCoffeeIsDoneLights()
 
     STATE["coffeeDone"] = True
     STATE["brewing"] = False
-
-
-# def stillBrewing(hue: Hue | None) -> None:
-#     if (hue):
-#         hue.turnOffAllLightsV2()
-#         time.sleep(1)
-#         hue.setAllLightsV2(0.4878, 0.4613)  # yellow
 
 
 def coffeeMakerTurnedOff(hue: Hue | None, slack: Slack | None) -> None:

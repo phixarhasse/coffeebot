@@ -9,7 +9,7 @@ class ComplexEncoder(json.JSONEncoder):
 
 class Dimming:
     def __init__(self, dimmingPercent):
-        self.brightness = 100.0 if dimmingPercent is None else dimmingPercent
+        self.brightness = 78.66 if dimmingPercent is None else dimmingPercent
 
     def reprJSON(self):
         return dict(brightness = self.brightness) 
@@ -34,7 +34,7 @@ class Color:
 
 class ColorTemperature:
     def __init__(self, mirek, valid):
-        self.Mirek = 153 if mirek is None else mirek
+        self.Mirek = mirek
         self.Mirek_valid = False if valid is None else valid
 
     def reprJSON(self):
@@ -42,10 +42,10 @@ class ColorTemperature:
     
 
 class Parameters:
-    def __init__(self, color, colorTemperature, speed):
+    def __init__(self, color, colorTemperature, speed = None):
         self.Color = color
         self.ColorTemperature = colorTemperature
-        self.Speed = 0.5 if speed is None else speed
+        self.Speed = 0.0 if speed is None else speed
 
     def reprJSON(self):
         return dict(color = self.Color, color_temperature = self.ColorTemperature, speed = self.Speed) 
@@ -72,7 +72,7 @@ class Effects_v2:
 
 class BrewingState:
    
-	def __init__(self, dimming=None, color=None, effect=None, parameters=None):
+	def __init__(self, dimming = None, color = None, effect = None, parameters = None):
 		self.Dimming = Dimming(100.0) if dimming is None else dimming 
 		self.Color = color 
 		self.Effects_v2 = None if effect is None else Effects_v2(effect, parameters)
