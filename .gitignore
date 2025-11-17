@@ -10,3 +10,7 @@ urls*
 .env
 venv*
 env/
+properties*
+*.crt
+.vs/
+.vscode/
