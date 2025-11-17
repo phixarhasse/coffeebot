@@ -93,7 +93,7 @@ class Hue:
                 verify = False
             )
             if (not hueResponse.ok):
-                logging.warning(f"Hue.getLightsV2: Unable to get Hue lights V2, got the response {hueResponse.status_code} {hueResponse.text}")
+                logging.warning(f"Hue.initializeLights: Unable to get Hue lights V2, got the response {hueResponse.status_code} {hueResponse.text}")
                 return
 
         except Exception as e:
@@ -101,7 +101,7 @@ class Hue:
             return
         for light in hueResponse.json()["data"]:
             self.lights.append(light)
-        logging.debug(f"Hue.getLightsV2: Hue lights V2 retrieved and saved to: {self.lights}")
+        logging.debug(f"Hue.initializeLights: Hue lights V2 retrieved and saved to: {self.lights}")
 
 
     def getLightV2(self, lightId = None):

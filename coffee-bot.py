@@ -50,7 +50,7 @@ async def main() -> None:
     if (os.getenv("USE_HUE") == "True"):
         logging.debug(f"Coffee-bot.main: Initializing Hue class.")
         hue = Hue()
-        hue.getLightsV2()
+        hue.initializeLights()
 
     db = None
     if (os.getenv("STORE_DATA") == "True"):
