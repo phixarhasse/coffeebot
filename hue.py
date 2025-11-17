@@ -8,9 +8,9 @@ from brewingStateHelper import BrewingState, Dimming, Color, ColorTemperature, P
 class Hue:
     def __init__(self):
         logging.basicConfig(
-            format="%(asctime)s %(levelname)s: %(message)s",
-            level=logging.DEBUG,
-            datefmt="%Y-%m-%d %H:%M:%S",
+            format = "%(asctime)s %(levelname)s: %(message)s",
+            level = logging.DEBUG,
+            datefmt = "%Y-%m-%d %H:%M:%S",
         )
         try:
             logging.debug(f"Hue.__init__: Initializing Hue class")

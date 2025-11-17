@@ -31,10 +31,10 @@ Main loop
 async def main() -> None:
     # Setup logging
     logging.basicConfig(
-        filename=time.strftime("%Y-%m-%d_%H-%M-%S.log"),
-        format="%(asctime)s %(levelname)s: %(message)s",
-        level=logging.DEBUG,
-        datefmt="%Y-%m-%d %H:%M:%S",
+        filename = time.strftime("%Y-%m-%d_%H-%M-%S.log"),
+        format = "%(asctime)s %(levelname)s: %(message)s",
+        level = logging.DEBUG,
+        datefmt = "%Y-%m-%d %H:%M:%S",
     )
     logging.getLogger("requests").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
@@ -50,7 +50,7 @@ async def main() -> None:
     if (os.getenv("USE_HUE") == "True"):
         logging.debug(f"Coffee-bot.main: Initializing Hue class.")
         hue = Hue()
-        hue.initializeLights()
+        hue.getLightsV2()
 
     db = None
     if (os.getenv("STORE_DATA") == "True"):
