@@ -40,6 +40,16 @@ SENSOR_URL=     # The complete URL to the Shelly Plug, e.g. "http://192.168.0.10
 6. pip install -r requirements.txt     # Install all dependencies
 7. deactivate                          # Deactivate the enviroment
 
+## How to use HTTPS
+
+Philips state in the API documentation that you should use HTTPS when going to production. 
+1. Get the Hue Bridge certificate by running `C:\coffeebot> openssl s_client -showcerts -connect [Hue Bridge IP]:443` and save it as a `.crt` file, or open the URL to 
+the bridge in a web browser and download the certificate from the browser's security info (the padlock near the URL).
+2. Install the certificate in the appropriate place where the coffeebot is running. On Linux, this would be by copying the `.crt` file to `/usr/share/ca-certificates` 
+and run `%> sudo update-ca-certificates`.
+3. The certificate is broken according to https://www.reddit.com/r/Hue/comments/1npl0id/philips_hue_bridge_ssl_certificates_are_broken/ so for now you must tell the 
+API calls to not verify the certificate: `requests.get(<url>, verify=False)` 
+
 ## How to Run the Bot
 
 1. `source env/bin/activate` activates the python enviroment
